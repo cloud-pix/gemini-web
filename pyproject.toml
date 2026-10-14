@@ -1,0 +1,18 @@
+[project]
+name = "gemini-web"
+version = "0.1.0"
+description = "FOSS sync client for the Gemini web app (batchexecute/StreamGenerate), incl. video upload + analysis. No API key; cookie login."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["curl_cffi>=0.5"]
+
+[project.scripts]
+gemini-web = "gemini_web.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["gemini_web*"]
