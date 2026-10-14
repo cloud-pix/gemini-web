@@ -1,12 +1,10 @@
-# gemini-web (FOSS, AGPL-3.0-or-later)
+# gemini-web ✨
 
-Sync Python client for the **Google Gemini web app** (`gemini.google.com`) — no API key.
-Cookie login, file/video upload, `StreamGenerate` prompts. Stdlib + `curl_cffi` only
-(no `orjson`/`pydantic`/`loguru`, so it installs on Termux/aarch64).
+Use the **Gemini web app** (`gemini.google.com`) from your terminal — no API key needed. Chat, analyze videos, generate images, even plug it into your AI coding tools.
 
-Protocol derived from [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API)
-(init `SNlM0e`/`bl`/`f.sid`/`push_id`, `content-push` upload, 81-slot Relay-style
-`StreamGenerate` body, length-prefixed frame parsing, candidate `[1][0]` text).
+Free and open source (AGPL-3.0-or-later). Runs on Termux/Android too 📱 — just Python + `curl_cffi`, no heavy dependencies.
+
+> Protocol know-how borrowed from [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Gemini-API). Thanks! 🙏
 
 ## Install
 
@@ -14,125 +12,98 @@ Protocol derived from [HanaokaYuzu/Gemini-API](https://github.com/HanaokaYuzu/Ge
 pip install -e .
 ```
 
-## Login first (required)
+## Quickstart 🔑
 
-The web app needs a logged-in Google session. Export from a browser where you use Gemini:
-
-- Chrome: `⋮ → Settings → Privacy → Third-party cookies → See all site data → google.com`
-  — or simply: log into https://gemini.google.com once in Chrome, then
-  `yt-dlp --cookies-from-browser chrome --cookies gcookies.txt https://gemini.google.com/`
-- Only `__Secure-1PSID` (+ optional `__Secure-1PSIDTS`) is used. Nothing else is read.
+Gemini needs you logged in. Log in once in your browser, grab your cookies, and you're set:
 
 ```bash
-export GEMINI_PSID='paste-__Secure-1PSID'
-export GEMINI_PSIDTS='paste-__Secure-1PSIDTS'   # optional
+# easiest: export cookies with yt-dlp, then log in
+yt-dlp --cookies-from-browser chrome --cookies gcookies.txt https://gemini.google.com/
+
+export GEMINI_PSID='paste-your-__Secure-1PSID-here'
+# GEMINI_PSIDTS too, if you have it (optional)
+
 gemini-web login --out gemini_session.json
-gemini-web check                               # init + tiny ask, proves execution
-gemini-web models                              # models this account can pick
+gemini-web check        # tiny test prompt — proves everything works ✅
+gemini-web models       # see which models your account can use
 ```
 
-## Model selection: yes
+Only the `__Secure-1PSID` cookie is used. Nothing else is touched.
 
-Models are discovered per account from the `GetUserStatus` RPC (no hardcoded list),
-and `--model` works on `ask`/`analyze`/`analyze-batch` (name or alias, e.g.
-`gemini-flash`, `flash`, `4-argon`). Verified live: `gemini-flash-lite`,
-`gemini-flash`, `gemini-argon` execute; `gemini-pro` is listed but the server
-rejects execution on a free account. Unknown names fail fast with the valid list.
-
-Bot-detection notes: `chrome145` TLS impersonation (avoids Device Bound Session
-Credentials), `Origin/Referer: gemini.google.com`, `X-Same-Domain`, `RotateCookies`
-refresh, and honest errors — HTTP 429 means Google flagged the IP (change network/VPN,
-don't hammer).
-
-## Use
+## Everyday use 💬
 
 ```bash
+# just chat
 gemini-web ask "Reply with exactly: OK"
-gemini-web ask "Explain this" --model gemini-flash
+gemini-web ask "Explain this idea simply" --model gemini-flash
+
+# describe a video
 gemini-web analyze reel.mp4 --prompt "Describe this video in detail..." -o out.txt
-gemini-web analyze-batch *.mp4 -o ./analyses --delay 8   # resume-aware, stops on 429
+
+# describe a whole folder (skips ones already done, pauses politely between them)
+gemini-web analyze-batch *.mp4 -o ./analyses --delay 8
+
+# make an image 🖼️
 gemini-web gen-image "a baby red panda in a yellow raincoat" -o panda.png
-# --preview: smaller =s1024 preview instead of full-size RPC + =s2048 (~1MB vs ~8MB, faster)
-gemini-web gen-image "..." -o panda.png --preview
-# every gen-image auto-removes the Gemini sparkle watermark (original kept as .orig.png;
-# --no-logo skips, --no-original skips backup). Standalone: gemini-web remove-logo in.png
+gemini-web gen-image "..." -o panda.png --preview   # smaller + faster (~1MB vs ~8MB)
 ```
 
-## Thinking levels: `--thinking low|medium|high` (you were right)
+Every generated image automatically gets the little Gemini sparkle watermark ✨ cleaned off (the original is kept as `.orig.png`, just in case). Don't want that? Add `--no-logo`. Got an old image with the sparkle? `gemini-web remove-logo pic.png`.
 
-The level selector exists per model in the account's `GetUserStatus` policy block
-(`"Thinking level"`: Low=1 "Quick and efficient", Medium=4 "Balanced depth",
-High=2 "Extra thorough") — same codes on all four models. Implemented end to end:
-flag on `ask`/`analyze`/`analyze-batch`/`gen-image`, `reasoning_effort` mapping on
-the shim, level code mirrored into `inner[80]` and the model header. Default `low`
-(= previous behavior). Honest caveat: levels only matter on thinking-capable
-models, and this account can't execute Pro; observable differences on Flash are
-small.
+## Picking a model 🎛️
 
-## Logo remover
+```bash
+gemini-web ask "..." --model gemini-flash
+```
 
-`gemini_web/logo.py` (PIL + numpy, no cv2): finds the semi-transparent 4-point
-sparkle near bottom-right via template NCC on a ≤640px copy (memory-capped, a few
-MB peak), inpaints the bbox region, blends seams, keeps a `.orig` backup. Only
-the visible mark — the invisible SynthID signal stays.
+Run `gemini-web models` to see yours — the list comes from your own account, so it's always accurate. Short names work too (`flash`, `4-argon`). One honest note: the free account can run Flash and Argon, but the server refuses Pro even though it's listed. Unknown names get a friendly error showing what's actually available.
 
-## Thinking: `--thinking low|medium|high`
+## Thinking levels 🧠
 
-Levels come from the account policy (Low=1, Medium=4, High=2), not guesses.
-`--thinking` is supported on `ask`/`analyze`/`analyze-batch`/`gen-image`
-(and `reasoning_effort` on the shim maps to it).
+```bash
+gemini-web ask "..." --thinking high   # low | medium | high, default: low
+```
 
-`analyze-batch` writes `{stem}.json` (`video`/`prompt`/`analysis`) per file, skips
-existing outputs, waits `--delay` between items, and aborts the run on rate limiting
-instead of burning quota.
+Works on `ask`, `analyze`, `analyze-batch`, and `gen-image`. These are the real levels from the Gemini app — not guesses. Fair warning: on a free account the difference is subtle, since only Pro truly "thinks" and Pro won't run without a paid plan.
 
-## `serve`: OpenAI-compatible shim (for OpenCode custom provider)
+## For nerds: plug it into your tools 🔌
+
+**OpenAI-compatible server** — point any OpenAI-style client at it:
 
 ```bash
 gemini-web serve --port 8123 --api-key SECRET --default-model gemini-flash
-# GET  /v1/models
-# POST /v1/chat/completions   (stream:true SSE, tools best-effort, image_url parts)
 ```
 
-Wire into `opencode.jsonc`:
-
 ```jsonc
+// opencode.jsonc
 { "providers": { "gemini-web": {
   "package": "@opencode/ai/providers/openai-compatible",
   "settings": { "baseURL": "http://127.0.0.1:8123/v1" },
   "models": { "flash": { "modelID": "gemini-flash" } } } } }
 ```
 
-Honest limits, all verified live: plain chat + SSE streaming + `/v1/models` +
-`image_url` upload-attach work; **tool calling is emulated** (schemas injected as
-text, fenced ` ```tool_calls ` parsed back) and the model frequently refuses fake
-tools or errors on `tool_choice: required`. Context is stateless per request
-(history re-sent each turn by the client). Fine for light use, not for heavy
-agentic loops — for that use a real Gemini API key instead.
-
-## `mcp`: image generation for AI models (Model Context Protocol)
-
-Stdlib-only stdio server — no `mcp` package needed (it doesn't build on
-Termux/aarch64; the JSON-RPC framing is implemented directly). Tools:
-`generate_image` (prompt → PNG saved + image returned inline),
-`ask`, `list_models`.
+**MCP server** — let AI models generate images through you:
 
 ```bash
 gemini-web mcp --session-file gemini_session.json --outdir ./gen_out
-# same --cookies/--psid/--session-file auth flags as the rest of the CLI
 ```
 
-Wire into `opencode.jsonc`:
-
 ```jsonc
+// opencode.jsonc
 { "mcp": { "servers": { "gemini-image": {
   "type": "local",
   "command": ["gemini-web", "mcp", "--session-file", "/path/to/gemini_session.json", "--outdir", "/path/to/gen_out"] } } } }
 ```
 
-Claude Desktop (`claude_desktop_config.json`): same command under
-`mcpServers`. Notes: `generate_image` defaults to the fast preview
-(`full_size: false`) and only inlines images up to ~2.5MB into the reply
-(larger ones are downscaled for the inline copy; the full file stays on
-disk) so one call can't blow up the model's context. Watermark removal
-applies automatically unless `remove_logo: false`.
+Same thing works in Claude Desktop under `mcpServers`. The model gets three tools: `generate_image`, `ask`, `list_models`. Images default to the fast preview size so one call can't explode the model's context window 💥 — the full file is always saved to disk.
+
+## Honest limits ⚠️
+
+- Chat, streaming, and image upload all work. **Tool calling is faked** (the web app has no real function-calling, so schemas are sent as text and parsed back) — fine for simple stuff, flaky for complex agents. For heavy agentic work, use a real Gemini API key.
+- Each request is stateless — history is re-sent every turn.
+- Google rate-limits aggressively. HTTP 429 means "change network or wait" — don't hammer. The batch command stops itself when this happens instead of burning your quota.
+- The watermark remover only clears the *visible* sparkle. Gemini also hides an invisible SynthID signal in every image — that stays, and no tool can strip it.
+
+## How it works (the 30-second version) 🔧
+
+Cookie login → `SNlM0e` token from `/app` → file uploads via `content-push` → prompts via `StreamGenerate` → replies parsed from length-prefixed frames. TLS impersonates Chrome 145 so Google doesn't get suspicious. If you're curious, it's all in `gemini_web/protocol.py` — heavily commented.
