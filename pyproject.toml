@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "FOSS sync client for the Gemini web app (batchexecute/StreamGenerate), incl. video upload + analysis. No API key; cookie login."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
+classifiers = [
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Programming Language :: Python :: 3",
+]
 dependencies = ["curl_cffi>=0.5"]
 
 [project.scripts]

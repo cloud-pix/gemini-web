@@ -1,4 +1,4 @@
-# gemini-web (FOSS, MIT)
+# gemini-web (FOSS, AGPL-3.0-or-later)
 
 Sync Python client for the **Google Gemini web app** (`gemini.google.com`) — no API key.
 Cookie login, file/video upload, `StreamGenerate` prompts. Stdlib + `curl_cffi` only
