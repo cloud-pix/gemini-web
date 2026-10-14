@@ -76,6 +76,11 @@ def build():
     s.add_argument("--api-key", default=None, help="required Bearer key (or GEMINI_WEB_API_KEY env)")
     s.add_argument("--default-model", default=None)
     s.add_argument("--timeout", type=int, default=300)
+
+    mc = sub.add_parser("mcp", help="MCP stdio server: image generation for AI models")
+    mc.add_argument("--outdir", default=os.environ.get("GEMINI_WEB_OUTDIR", "."),
+                    help="where generated images are saved (default: cwd)")
+    mc.add_argument("--timeout", type=int, default=300)
     return p
 
 
@@ -158,6 +163,14 @@ def main(argv=None):
                   "\"@opencode/ai/providers/openai-compatible\", \"settings\": "
                   f"{{\"baseURL\": \"http://{a.host}:{a.port}/v1\"}}}}")
             serve(shim, a.host, a.port)
+            return 0
+        if a.cmd == "mcp":
+            from gemini_web.mcp import serve_stdio
+
+            def _mk():
+                cl, _ = make_client(a)
+                return cl
+            serve_stdio(_mk, outdir=a.outdir, timeout=a.timeout)
             return 0
         if a.cmd == "ask":
             cl, _ = make_client(a)

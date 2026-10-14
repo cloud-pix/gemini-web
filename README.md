@@ -109,3 +109,30 @@ text, fenced ` ```tool_calls ` parsed back) and the model frequently refuses fak
 tools or errors on `tool_choice: required`. Context is stateless per request
 (history re-sent each turn by the client). Fine for light use, not for heavy
 agentic loops — for that use a real Gemini API key instead.
+
+## `mcp`: image generation for AI models (Model Context Protocol)
+
+Stdlib-only stdio server — no `mcp` package needed (it doesn't build on
+Termux/aarch64; the JSON-RPC framing is implemented directly). Tools:
+`generate_image` (prompt → PNG saved + image returned inline),
+`ask`, `list_models`.
+
+```bash
+gemini-web mcp --session-file gemini_session.json --outdir ./gen_out
+# same --cookies/--psid/--session-file auth flags as the rest of the CLI
+```
+
+Wire into `opencode.jsonc`:
+
+```jsonc
+{ "mcp": { "servers": { "gemini-image": {
+  "type": "local",
+  "command": ["gemini-web", "mcp", "--session-file", "/path/to/gemini_session.json", "--outdir", "/path/to/gen_out"] } } } }
+```
+
+Claude Desktop (`claude_desktop_config.json`): same command under
+`mcpServers`. Notes: `generate_image` defaults to the fast preview
+(`full_size: false`) and only inlines images up to ~2.5MB into the reply
+(larger ones are downscaled for the inline copy; the full file stays on
+disk) so one call can't blow up the model's context. Watermark removal
+applies automatically unless `remove_logo: false`.
